@@ -1,8 +1,61 @@
+import fs from 'fs';
+import path from 'path';
+import csvParse from 'csv-parse';
+
 import Transaction from '../models/Transaction';
+import uploadConfig from '../config/upload';
+import CreateTransactionService from './CreateTransactionService';
+
+interface Request {
+  filename: string;
+}
 
 class ImportTransactionsService {
-  async execute(): Promise<Transaction[]> {
-    // TODO
+  async execute({ filename: fileName }: Request): Promise<Transaction[]> {
+    const rows = await this.loadCSV(fileName);
+    const createTransaction = new CreateTransactionService();
+    const transactions: Transaction[] = [];
+
+    rows.forEach(async row => {
+      const [title, type, value, category] = row;
+
+      const transaction = await createTransaction.execute({
+        title,
+        value: Number(value),
+        type: type as 'income' | 'outcome',
+        category,
+      });
+
+      transactions.push(transaction);
+    });
+
+    return transactions;
+  }
+
+  private async loadCSV(fileName: string): Promise<string[][]> {
+    const csvFilePath = path.join(uploadConfig.directory, fileName);
+
+    const readCSVStream = fs.createReadStream(csvFilePath);
+
+    const parseStream = csvParse({
+      from_line: 2,
+      ltrim: true,
+      rtrim: true,
+    });
+
+    const parseCSV = readCSVStream.pipe(parseStream);
+
+    const lines: string[][] = [];
+
+    parseCSV.on('data', line => {
+      lines.push(line);
+    });
+
+    await new Promise(resolve => {
+      parseCSV.on('end', resolve);
+    });
+
+    return lines;
   }
 }
 
