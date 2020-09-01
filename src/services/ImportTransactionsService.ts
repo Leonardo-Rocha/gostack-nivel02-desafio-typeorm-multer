@@ -5,6 +5,7 @@ import csvParse from 'csv-parse';
 import Transaction from '../models/Transaction';
 import uploadConfig from '../config/upload';
 import CreateTransactionService from './CreateTransactionService';
+import AppError from '../errors/AppError';
 
 interface Request {
   filename: string;
@@ -13,21 +14,31 @@ interface Request {
 class ImportTransactionsService {
   async execute({ filename: fileName }: Request): Promise<Transaction[]> {
     const rows = await this.loadCSV(fileName);
+
+    if (!rows) {
+      throw new AppError('Unable to read csv.', 400);
+    }
+
     const createTransaction = new CreateTransactionService();
-    const transactions: Transaction[] = [];
 
-    rows.forEach(async row => {
-      const [title, type, value, category] = row;
+    const transactions = await Promise.all(
+      rows.map(async row => {
+        const [title, type, value, category] = row;
 
-      const transaction = await createTransaction.execute({
-        title,
-        value: Number(value),
-        type: type as 'income' | 'outcome',
-        category,
-      });
+        try {
+          const transaction = await createTransaction.execute({
+            title,
+            value: Number(value),
+            type: type as 'income' | 'outcome',
+            category,
+          });
 
-      transactions.push(transaction);
-    });
+          return transaction;
+        } catch (err) {
+          throw new AppError('Unable to create transactions.', 500);
+        }
+      }),
+    );
 
     return transactions;
   }
