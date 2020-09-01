@@ -20,25 +20,20 @@ class ImportTransactionsService {
     }
 
     const createTransaction = new CreateTransactionService();
+    const transactions = [];
 
-    const transactions = await Promise.all(
-      rows.map(async row => {
-        const [title, type, value, category] = row;
+    for (const row of rows) {
+      const [title, type, value, category] = row;
 
-        try {
-          const transaction = await createTransaction.execute({
-            title,
-            value: Number(value),
-            type: type as 'income' | 'outcome',
-            category,
-          });
+      const transaction = await createTransaction.execute({
+        title,
+        value: Number(value),
+        type: type as 'income' | 'outcome',
+        category,
+      });
 
-          return transaction;
-        } catch (err) {
-          throw new AppError('Unable to create transactions.', 500);
-        }
-      }),
-    );
+      transactions.push(transaction);
+    }
 
     return transactions;
   }
