@@ -36,11 +36,11 @@ class TransactionsRepository extends Repository<Transaction> {
   private sumTransactionsValues(transactions: Transaction[]): number {
     const { value } = transactions.reduce(
       (accumulator, currentValue) => {
-        accumulator.value += currentValue.value;
+        accumulator.value += Number(currentValue.value);
         return accumulator;
       },
       {
-        value: 0,
+        value: 0.0,
       },
     );
 
